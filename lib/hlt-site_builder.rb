@@ -14,7 +14,11 @@ class String
     Hlt.new(self.gsub(/^(?=[^\n])/,'  ').sub(/^\s{2}/,'')).to_html
   end
 
-  def to_doc()  Rexle.new(self.to_html)  end
+  def to_doc()
+    buffer = self.to_html  
+    Rexle.new(buffer)  
+  end
+
 end
 
 class HltSiteBuilder
@@ -28,6 +32,19 @@ class HltSiteBuilder
     if @dynarex.summary['container_id'] then
       @opt.merge!(container_id: @dynarex.summary['container_id'])
     end
+
+    keys = @dynarex.records.keys
+    @template = keys.shift
+
+    @pages = keys.inject({}) do |r, x| 
+      label, val = x.split(/\n/,2)
+      r.merge({label.strip.to_sym => val})
+    end
+
+    s = @pages.keys.map do |name| 
+      "def #{name.to_s.downcase.gsub(/\s+/,'_').gsub(/\W+/,'')}() @pages[:'#{name}']; end"
+    end.join("\n")
+    self.instance_eval s
 
   end
 
@@ -49,13 +66,7 @@ class HltSiteBuilder
 
     opt = {css: false}.merge options
 
-    keys = @dynarex.records.keys
-    @template = keys.shift
 
-    @pages = keys.inject({}) do |r, x| 
-      label, val = x.split(/\n/,2)
-      r.merge({label.strip.to_sym => val})
-    end
 
     style = @opt[:style]
 

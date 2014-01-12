@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = 'hlt-site_builder'
-  s.version = '0.2.0'
+  s.version = '0.2.1'
   s.summary = 'hlt-site_builder'
   s.authors = ['James Robertson']
   s.files = Dir['lib/**/*.rb']
