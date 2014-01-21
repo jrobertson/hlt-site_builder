@@ -8,20 +8,23 @@ require 'fileutils'
 require 'html-to-css'
 
 
-class String
+module HTMLBuilder
+  refine String do
 
-  def to_html()
-    Hlt.new(self.gsub(/^(?=[^\n])/,'  ').sub(/^\s{2}/,'')).to_html
+    def to_html()
+      Hlt.new(self.gsub(/^(?=[^\n])/,'  ').sub(/^\s{2}/,'')).to_html
+    end
+
+    def to_doc()
+      buffer = self.to_html  
+      Rexle.new(buffer)  
+    end
+
   end
-
-  def to_doc()
-    buffer = self.to_html  
-    Rexle.new(buffer)  
-  end
-
 end
 
 class HltSiteBuilder
+  using HTMLBuilder
 
   def initialize(file, options={})
 
@@ -62,7 +65,7 @@ class HltSiteBuilder
 
   end
 
-  def generate(options={})
+  def generate(options={}, &blk)
 
     opt = {css: false}.merge options
 
@@ -74,8 +77,11 @@ class HltSiteBuilder
 
 
       @opt[:style] = true 
-      generate_pages @pages.keys
+      generate_pages @pages.keys, &blk
       @htc = HtmlToCss.new
+
+      path = 'css'
+      FileUtils.mkdir_p path unless File.exists? path
 
       File.write 'css/layout.css', @htc.to_layout
       File.write 'css/style.css', @htc.to_style
@@ -83,7 +89,7 @@ class HltSiteBuilder
 
     end
 
-    generate_pages @pages.keys
+    generate_pages @pages.keys, &blk
     puts 'files generated'
   end
 
@@ -112,7 +118,7 @@ class HltSiteBuilder
 
   # generate the html for the 1st item.
   #
-  def generate_pages(a)
+  def generate_pages(a, &blk)
 
     container_id = @opt[:container_id]
 
@@ -121,14 +127,16 @@ class HltSiteBuilder
       doc = @template.to_doc
       doc2 = ("div {id: '#{container_id}'}\n" + @pages[name]).to_doc
 
-      yield(doc2) if block_given?
-
       e = doc.element("//div[@id='#{container_id}']")
       e.insert_before doc2.root
       e.delete
 
       title = doc.root.element('head/title')
       title.text = name.to_s + ' | ' + title.text.unescape
+
+      if block_given? then
+        blk.call(name.to_s.downcase.gsub(/\s+/,'_').gsub(/\W+/,''), doc)
+      end
 
       filename = format_filename(name)
 
