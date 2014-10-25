@@ -37,6 +37,7 @@ class HltSiteBuilder
     end
 
     keys = @dynarex.records.keys
+
     @template = keys.shift
 
     @pages = keys.inject({}) do |r, x| 
@@ -53,14 +54,8 @@ class HltSiteBuilder
 
   def docs_each()
 
-    pages = @pages.to_a
-    pages[0][0] = 'index'
-
-    pages.keys.each do |pg_name| 
-
-      filename = format_filename(pg_name)
-      doc = Rexle.new(File.read filename)
-      yield(filename, doc) 
+    self.pages_each do |filename, filecontents| 
+      yield(filename, Rexle.new(filecontents))
     end
 
   end
@@ -76,7 +71,8 @@ class HltSiteBuilder
     if opt[:css] == true then
 
 
-      @opt[:style] = true 
+      @opt[:style] = true
+
       generate_pages @pages.keys, &blk
       @htc = HtmlToCss.new
 
@@ -90,7 +86,7 @@ class HltSiteBuilder
     end
 
     generate_pages @pages.keys, &blk
-    puts 'files generated'
+
   end
 
   def to_layout()  @htc.to_layout   end
@@ -100,7 +96,9 @@ class HltSiteBuilder
 
     pages = @pages.to_a
     pages[0][0] = 'index'
-    pages.keys.each do |pg_name| 
+    pages.each do |page| 
+      
+      pg_name = page[0]
       filename = format_filename(pg_name)
       content = File.read filename
       yield(filename, content) 
@@ -120,14 +118,14 @@ class HltSiteBuilder
   #
   def generate_pages(a, &blk)
 
-    container_id = @opt[:container_id]
+    container_selector = @opt[:container_selector]
 
     a.each do |name|
-
+      
       doc = @template.to_doc
-      doc2 = ("div {id: '#{container_id}'}\n" + @pages[name]).to_doc
+      doc2 = ("main\n" + @pages[name]).to_doc
 
-      e = doc.element("//div[@id='#{container_id}']")
+      e = doc.css(container_selector).first
       e2 = e.element('./.')
       
       # if there is child elements within the target element then we add
@@ -138,8 +136,9 @@ class HltSiteBuilder
           e2.insert_before node
         end
       else
-        e.insert_before doc2.root
-        e.delete
+        doc2.root.elements.each do |node|
+          e.add node
+        end
       end
 
       title = doc.root.element('head/title')
@@ -152,11 +151,17 @@ class HltSiteBuilder
       filename = format_filename(name)
 
       if @opt[:style] == false then
-        doc.root.xpath('//.[@style]').each {|e| e.attributes.delete :style}
+        
+        doc.root.xpath('//.[@style]').each do |e| 
+          
+          unless e.attributes[:style][/^clear:/] then
+            e.attributes.delete :style 
+          end
+        end
       end
 
       #puts 'saving ' + filename
-      File.write filename, doc.content
+      File.write filename, doc.content(pretty: true)
     end
 
     FileUtils.mv f(a[0]), 'index.html'
@@ -167,7 +172,7 @@ end
 
 if __FILE__ == $0 then
 
-  hsb = HltSiteBuilder.new('pages.txt', style: false, container_id: 'main')
+  hsb = HltSiteBuilder.new('pages.txt', style: false, container_selector: 'main')
   hsb.generate css: true
 =begin
   hsb.pages_each do |filename, buffer| 

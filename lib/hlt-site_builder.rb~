@@ -128,8 +128,19 @@ class HltSiteBuilder
       doc2 = ("div {id: '#{container_id}'}\n" + @pages[name]).to_doc
 
       e = doc.element("//div[@id='#{container_id}']")
-      e.insert_before doc2.root
-      e.delete
+      e2 = e.element('./.')
+      
+      # if there is child elements within the target element then we add
+      #  the new nodes before it.
+      
+      if e2 then
+        doc2.root.elements.each do |node|
+          e2.insert_before node
+        end
+      else
+        e.insert_before doc2.root
+        e.delete
+      end
 
       title = doc.root.element('head/title')
       title.text = name.to_s + ' | ' + title.text.unescape
